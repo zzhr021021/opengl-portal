@@ -149,6 +149,7 @@
   <ItemGroup>
     <ClInclude Include="mulsol.h" />
     <ClInclude Include="object.h" />
+    <ClInclude Include="portal.h" />
     <ClInclude Include="shader.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

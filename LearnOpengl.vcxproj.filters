@@ -32,5 +32,8 @@
     <ClInclude Include="object.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="portal.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -9,6 +9,7 @@
 #include "camera.h"
 #include "model.h"
 #include "object.h"
+#include "portal.h"
 
 #include <iostream>
 
@@ -34,7 +35,6 @@ float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 int sol();
-
 int main()
 {
     return sol();
@@ -91,6 +91,7 @@ int sol() {
     Shader nonModelShader("resources/shaders/non_model_shader.vs", "resources/shaders/non_model_shader.fs");
     Shader portalShader("resources/shaders/portal_shader.vs", "resources/shaders/portal_shader.fs");
     Shader screenShader("resources/shaders/screen_shader.vs", "resources/shaders/screen_shader.fs");
+    Shader skyboxShader("resources/shaders/skybox_shader.vs", "resources/shaders/skybox_shader.fs");
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -149,12 +150,12 @@ int sol() {
          5.0f, -0.5f, -5.0f,  1.0f, 1.0f
     };
     float portalVertices[] = {
-         -0.8f, -0.9f, -0.5f,  0.0f, 0.0f,
-         0.8f, -0.9f, -0.5f,  1.0f, 0.0f,
-         0.8f,  1.7f, -0.5f,  1.0f, 1.0f,
-         0.8f,  1.7f, -0.5f,  1.0f, 1.0f,
-        -0.8f,  1.7f, -0.5f,  0.0f, 1.0f,
-        -0.8f, -0.9f, -0.5f,  0.0f, 0.0f,
+        -0.8f, -1.2f,  0.0f,  0.0f, 0.0f,
+         0.8f, -1.2f,  0.0f,  1.0f, 0.0f,
+         0.8f,  1.2f,  0.0f,  1.0f, 1.0f,
+         0.8f,  1.2f,  0.0f,  1.0f, 1.0f,
+        -0.8f,  1.2f,  0.0f,  0.0f, 1.0f,
+        -0.8f, -1.2f,  0.0f,  0.0f, 0.0f,
     };
     float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates. NOTE that this plane is now much smaller and at the top of the screen
         // positions   // texCoords
@@ -166,6 +167,50 @@ int sol() {
          1.0f, -1.0f,  1.0f, 0.0f,
          1.0f,  1.0f,  1.0f, 1.0f
     };
+    float skyboxVertices[] = {
+        // positions          
+        -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+        -1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f
+    };
     vector<glm::vec3> cubePos;
     cubePos.push_back(glm::vec3(11.0f, 0.0f, -2.0f));
     cubePos.push_back(glm::vec3(13.0f, 0.0f, 0.0f));
@@ -173,9 +218,6 @@ int sol() {
     glm::vec3 plane1pos = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 plane2pos = glm::vec3(12.0f, 0.0f, 0.0f);
 
-    glm::vec3 portal1Pos = glm::vec3(-1.0f, 1.0f, 2.0f);
-    glm::vec3 portal2Pos = glm::vec3(12.0f, 1.0f, 2.0f);
-    
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
     glGenVertexArrays(1, &cubeVAO);
@@ -220,14 +262,33 @@ int sol() {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    // skybox VAO
+    unsigned int skyboxVAO, skyboxVBO;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
     // load textures
     // -------------
     unsigned int cubeTexture = loadTexture("resources/textures/container2.png");
     unsigned int floorTexture1 = loadTexture("resources/textures/grass.jpg");
     unsigned int floorTexture2 = loadTexture("resources/textures/desert.jpg");
-
-    
+    unsigned int portalAlphaTexture = loadTexture("resources/textures/portal_alpha.png");
+    unsigned int portalMarginTexture = loadTexture("resources/textures/portal_margin.png");
+    vector<std::string> faces
+    {
+        "resources/textures/skybox/right.jpg",
+        "resources/textures/skybox/left.jpg",
+        "resources/textures/skybox/top.jpg",
+        "resources/textures/skybox/bottom.jpg",
+        "resources/textures/skybox/front.jpg",
+        "resources/textures/skybox/back.jpg"
+    };
+    unsigned int cubemapTexture = loadCubemap(faces);
 
     // load models
     Model treeModel("resources/models/tree3/Lowpoly_tree_sample.obj");
@@ -238,41 +299,25 @@ int sol() {
     objVec.push_back(Object("tree1", &treeModel, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.1f, 0.1f, 0.1f), glm::vec3(0.0f, 0.0f, 0.0f)));
     objVec.push_back(Object("dog1", &dogModel, glm::vec3(0.0f, 0.0f, 4.0f), glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 0.0f)));
 
+    // portal isntance
+    Portal por1("poratl1", glm::vec3(1.0, 1.0, 2.0), glm::vec3(1.0, 1.0, 1.0), 15.0f, -30.0f);
+    Portal por2("poratl2", glm::vec3(12.0, 1.0, 2.0), glm::vec3(1.0, 1.0, 1.0), -30.0f, 0.0f);
+    por1.SetTwin(&por2);
+    por2.SetTwin(&por1);
+
     // shader configuration
     // --------------------
     shader.use();
     shader.setInt("texture1", 0);
-
     screenShader.use();
     screenShader.setInt("screenTexture", 0);
+    skyboxShader.use();
+    skyboxShader.setInt("skybox", 0);
+    portalShader.use();
+    portalShader.setInt("texture1", 0);
 
-
-    // framebuffer configuration
-    // -------------------------
-    unsigned int framebuffer;
-    glGenFramebuffers(1, &framebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    // create a color attachment texture
-    unsigned int textureColorbuffer;
-    glGenTextures(1, &textureColorbuffer);
-    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
-    // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
-    unsigned int rbo;
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT); // use a single renderbuffer object for both a depth AND stencil buffer.
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
-                                                                                                  // now that we actually created the framebuffer and added all attachments we want to check if it is actually complete now
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // draw as wireframe
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    // draw as wireframe ??? what is this
+    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     // render loop
     // -----------
@@ -283,32 +328,21 @@ int sol() {
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
-
         // input
         // -----
         processInput(window);
 
-        // first render pass: portal 1 texture.
-        // bind to framebuffer and draw to color texture as we normally 
-        // would, but with the view camera reversed.
-        // bind to framebuffer and draw scene as we normally would to color texture 
-        // ------------------------------------------------------------------------
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-        glEnable(GL_DEPTH_TEST);
-
-        // make sure we clear the framebuffer's content
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
         glm::mat4 model = glm::mat4(1.0f);
-        glm::vec3 distVec = portal2Pos - portal1Pos;
-        camera.Position += distVec;
-        camera.ProcessMouseMovement(0, 0, false); // call this to make sure it updates its camera vectors
         glm::mat4 view = camera.GetViewMatrix();
-        camera.Position -= distVec;
-
-        camera.ProcessMouseMovement(0, 0, true);
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+
+        // 1st draw as normal
+        // ----------------------------------
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
         nonModelShader.use();
         nonModelShader.setMat4("view", view);
         nonModelShader.setMat4("projection", projection);
@@ -318,19 +352,24 @@ int sol() {
         portalShader.use();
         portalShader.setMat4("view", view);
         portalShader.setMat4("projection", projection);
+        skyboxShader.use();
+        view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
+        skyboxShader.setMat4("view", view);
+        skyboxShader.setMat4("projection", projection);
 
-        // cubes
+        // dont write to stencil
+        glStencilMask(0x00);
         nonModelShader.use();
         glBindVertexArray(cubeVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, cubeTexture);
-
         for (glm::vec3 pos : cubePos) {
             model = glm::mat4(1.0f);
             model = glm::translate(model, pos);
             nonModelShader.setMat4("model", model);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
+
         // floor
         glBindVertexArray(planeVAO);
         glBindTexture(GL_TEXTURE_2D, floorTexture1);
@@ -344,51 +383,108 @@ int sol() {
         nonModelShader.setMat4("model", model);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
-        
+
         // objects
         shader.use();
         for (auto obj : objVec) {
             model = glm::mat4(1.0f);
-            model = glm::translate(model, obj.position); // translating
-            model = glm::scale(model, obj.scale);	// scaling
+            model = glm::translate(model, obj.position);
+            model = glm::scale(model, obj.scale);
             shader.setMat4("model", model);
             obj.model->Draw(shader);
         }
 
+        glBindVertexArray(portalVAO);
+        // portal 1
+        // write to stencil
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0xFF);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, portalAlphaTexture);
+        portalShader.use();
+        model = por1.GetModelMatrix();
+        portalShader.setMat4("model", model);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        // margin of portal, just for now
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0x00);
+        nonModelShader.use();
+        nonModelShader.setMat4("model", model);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, portalMarginTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        // second render pass: draw as normal
-        // ----------------------------------
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        // portal 2
+        // write to stencil
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0xFF);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, portalAlphaTexture);
+        portalShader.use();
+        model = por2.GetModelMatrix();
+        portalShader.setMat4("model", model);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        // margin of portal, just for now
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0x00);
+        nonModelShader.use();
+        nonModelShader.setMat4("model", model);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, portalMarginTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        // draw skybox at last
+        skyboxShader.use();
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0x00);
+        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+        // skybox cube
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS); // set depth function back to default
 
-        model = glm::mat4(1.0f);
+        // 在模板写好之后将深度重置，以后主要靠模板测试
+        // 目前不知道这样有没有bug
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        // 2nd : draw portal view
+        glEnable(GL_DEPTH_TEST);
+        glStencilFunc(GL_EQUAL, 1, 0xFF);
+        glStencilMask(0x00);
+
+        glm::vec3 distVec = por2.position - por1.position;
+        camera.Position += distVec;
+        //camera.Position = glm::rotate(camera.Position, )
+        camera.ProcessMouseMovement(0, 0, false); // call this to make sure it updates its camera vectors
         view = camera.GetViewMatrix();
+        camera.Position -= distVec;
+        camera.ProcessMouseMovement(0, 0, true);
+        
         nonModelShader.use();
         nonModelShader.setMat4("view", view);
         shader.use();
         shader.setMat4("view", view);
         portalShader.use();
         portalShader.setMat4("view", view);
+        view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
+        skyboxShader.use();
+        skyboxShader.setMat4("view", view);
 
-        // 1st. render pass, draw objects as normal, writing to the stencil buffer
-        // --------------------------------------------------------------------
         // cubes
-        // dont write to stencil
-        glStencilMask(0x00);
-
         nonModelShader.use();
         glBindVertexArray(cubeVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, cubeTexture);
+
         for (glm::vec3 pos : cubePos) {
             model = glm::mat4(1.0f);
             model = glm::translate(model, pos);
             nonModelShader.setMat4("model", model);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
-
         // floor
         glBindVertexArray(planeVAO);
         glBindTexture(GL_TEXTURE_2D, floorTexture1);
@@ -402,7 +498,6 @@ int sol() {
         nonModelShader.setMat4("model", model);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
-
         // objects
         shader.use();
         for (auto obj : objVec) {
@@ -413,38 +508,19 @@ int sol() {
             obj.model->Draw(shader);
         }
 
-        // portal
-        // write to stencil
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilMask(0xFF);
-        portalShader.use();
-        glBindVertexArray(portalVAO);
-        // portal 1
-        glBindTexture(GL_TEXTURE_2D, cubeTexture);
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, portal1Pos);
-        portalShader.setMat4("model", model);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        // portal 2
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, portal2Pos);
-        portalShader.setMat4("model", model);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        // draw skybox as last
+        skyboxShader.use();
+        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+        // skybox cube
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
+        glDepthFunc(GL_LESS); // set depth function back to default
 
-        glDisable(GL_DEPTH_TEST);
-        glStencilFunc(GL_EQUAL, 1, 0xFF);
-        glStencilMask(0x00);
-
-        screenShader.use();
-        glBindVertexArray(quadVAO);
-        glBindTexture(GL_TEXTURE_2D, textureColorbuffer);	// use the color attachment texture as the texture of the quad plane
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-
-        glBindVertexArray(0);
         glStencilMask(0xFF);
         glStencilFunc(GL_ALWAYS, 0, 0xFF);
-        glEnable(GL_DEPTH_TEST);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -457,11 +533,11 @@ int sol() {
     glDeleteVertexArrays(1, &cubeVAO);
     glDeleteVertexArrays(1, &planeVAO);
     glDeleteVertexArrays(1, &quadVAO);
+    glDeleteVertexArrays(1, &skyboxVAO);
     glDeleteBuffers(1, &cubeVBO);
     glDeleteBuffers(1, &planeVBO);
     glDeleteBuffers(1, &quadVBO);
-    glDeleteRenderbuffers(1, &rbo);
-    glDeleteFramebuffers(1, &framebuffer);
+    glDeleteBuffers(1, &skyboxVBO);
 
     glfwTerminate();
     return 0;

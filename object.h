@@ -27,15 +27,15 @@ public:
     glm::vec3 scale;
     glm::vec3 rotation;
 
-    // constructor, expects a filepath to a 3D model.
+    // constructor, expects a 3D model pointer.
     Object(string name, Model * model, glm::vec3 position, glm::vec3 scale, glm::vec3 rotation) : name(name), model(model), position(position), scale(scale), rotation(rotation)
     {
     }
 
-    // draws the model, and thus all its meshes
-    //void Draw(Shader& shader)
-    //{
-    //}
+    void Draw() 
+    {
+
+    }
 
 private:
     
