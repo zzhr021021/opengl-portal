@@ -212,9 +212,10 @@ int sol() {
          1.0f, -1.0f,  1.0f
     };
     vector<glm::vec3> cubePos;
-    cubePos.push_back(glm::vec3(11.0f, 0.0f, -2.0f));
-    cubePos.push_back(glm::vec3(13.0f, 0.0f, 0.0f));
-    cubePos.push_back(glm::vec3(12.0f, 0.0f, 3.0f));
+    cubePos.push_back(glm::vec3(9.0f, 0.0f, -0.0f));
+    cubePos.push_back(glm::vec3(9.0f, 0.0f, -1.0f));
+    cubePos.push_back(glm::vec3(10.0f, 0.0f, -1.0f));
+    cubePos.push_back(glm::vec3(9.0f, 1.0f, -1.0f));
     glm::vec3 plane1pos = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 plane2pos = glm::vec3(12.0f, 0.0f, 0.0f);
 
@@ -300,8 +301,8 @@ int sol() {
     objVec.push_back(Object("dog1", &dogModel, glm::vec3(0.0f, 0.0f, 4.0f), glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 0.0f)));
 
     // portal isntance
-    Portal por1("poratl1", glm::vec3(1.0, 1.0, 2.0), glm::vec3(1.0, 1.0, 1.0), 15.0f, -30.0f);
-    Portal por2("poratl2", glm::vec3(12.0, 1.0, 2.0), glm::vec3(1.0, 1.0, 1.0), -30.0f, 0.0f);
+    Portal por1("poratl1", glm::vec3(1.0, 1.0, 2.0), glm::vec3(1.0, 1.0, 1.0), 0.0f, 0.0f);
+    Portal por2("poratl2", glm::vec3(12.0, 2.5, 2.0), glm::vec3(1.0, 1.0, 1.0), 45.0f, -40.0f);
     por1.SetTwin(&por2);
     por2.SetTwin(&por1);
 
@@ -453,14 +454,22 @@ int sol() {
         // 2nd : draw portal view
         glEnable(GL_DEPTH_TEST);
         glStencilFunc(GL_EQUAL, 1, 0xFF);
+        // glStencilFunc(GL_ALWAYS, 1, 0xFF);
         glStencilMask(0x00);
 
-        glm::vec3 distVec = por2.position - por1.position;
-        camera.Position += distVec;
-        //camera.Position = glm::rotate(camera.Position, )
+        glm::vec3 originalPos = camera.Position;
+        float originalYaw = camera.Yaw;
+        float originalPitch = camera.Pitch;
+
+        camera.Position = por1.GetNewCameraPosition(camera.Position);
+        camera.Yaw += por1.Yaw - por2.Yaw;
+        camera.Pitch += por2.Pitch - por1.Pitch;
+
         camera.ProcessMouseMovement(0, 0, false); // call this to make sure it updates its camera vectors
         view = camera.GetViewMatrix();
-        camera.Position -= distVec;
+        camera.Position = originalPos;
+        camera.Yaw = originalYaw;
+        camera.Pitch = originalPitch;
         camera.ProcessMouseMovement(0, 0, true);
         
         nonModelShader.use();
@@ -469,7 +478,7 @@ int sol() {
         shader.setMat4("view", view);
         portalShader.use();
         portalShader.setMat4("view", view);
-        view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
+        view = glm::mat4(glm::mat3(view)); // remove translation from the view matrix
         skyboxShader.use();
         skyboxShader.setMat4("view", view);
 
