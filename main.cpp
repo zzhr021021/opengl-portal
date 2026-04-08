@@ -5,6 +5,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <imgui.h>
+
 #include "shader.h"
 #include "camera.h"
 #include "model.h"
@@ -84,6 +86,9 @@ int sol() {
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    // blending
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // build and compile shaders
     // -------------------------
@@ -211,11 +216,16 @@ int sol() {
         -1.0f, -1.0f,  1.0f,
          1.0f, -1.0f,  1.0f
     };
+    
     vector<glm::vec3> cubePos;
     cubePos.push_back(glm::vec3(9.0f, 0.0f, -0.0f));
     cubePos.push_back(glm::vec3(9.0f, 0.0f, -1.0f));
     cubePos.push_back(glm::vec3(10.0f, 0.0f, -1.0f));
     cubePos.push_back(glm::vec3(9.0f, 1.0f, -1.0f));
+    vector<glm::vec3> altCubePos;
+    altCubePos.push_back(glm::vec3(9.0f, 2.0f, -0.0f));
+
+
     glm::vec3 plane1pos = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 plane2pos = glm::vec3(12.0f, 0.0f, 0.0f);
 
@@ -279,7 +289,8 @@ int sol() {
     unsigned int floorTexture1 = loadTexture("resources/textures/grass.jpg");
     unsigned int floorTexture2 = loadTexture("resources/textures/desert.jpg");
     unsigned int portalAlphaTexture = loadTexture("resources/textures/portal_alpha.png");
-    unsigned int portalMarginTexture = loadTexture("resources/textures/portal_margin.png");
+    // unsigned int portalMarginTexture = loadTexture("resources/textures/portal_margin.png");
+    unsigned int whiteNoiseTexture = loadTexture("resources/textures/whitenoise.png");
     vector<std::string> faces
     {
         "resources/textures/skybox/right.jpg",
@@ -297,12 +308,12 @@ int sol() {
 
     // objects vector
     vector<Object> objVec;
-    objVec.push_back(Object("tree1", &treeModel, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.1f, 0.1f, 0.1f), glm::vec3(0.0f, 0.0f, 0.0f)));
-    objVec.push_back(Object("dog1", &dogModel, glm::vec3(0.0f, 0.0f, 4.0f), glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 0.0f)));
+    objVec.push_back(Object("tree1", &treeModel, glm::vec3(0.0f, -0.2f, 0.0f), glm::vec3(0.1f, 0.1f, 0.1f), glm::vec3(0.0f, 0.0f, 0.0f)));
+    objVec.push_back(Object("tree1", &treeModel, glm::vec3(2.0f, -0.2f, -2.0f), glm::vec3(0.1f, 0.1f, 0.1f), glm::vec3(0.0f, 0.0f, 0.0f)));
 
     // portal isntance
-    Portal por1("poratl1", glm::vec3(1.0, 1.0, 2.0), glm::vec3(1.0, 1.0, 1.0), 0.0f, 0.0f);
-    Portal por2("poratl2", glm::vec3(12.0, 2.5, 2.0), glm::vec3(1.0, 1.0, 1.0), 45.0f, -40.0f);
+    Portal por1("poratl2", glm::vec3(12.0, 2.5, 2.0), glm::vec3(1.0, 1.0, 1.0), 45.0f, -40.0f);
+    Portal por2("poratl1", glm::vec3(1.0, 1.0, 2.0), glm::vec3(1.0, 1.0, 1.0), 0.0f, 0.0f);
     por1.SetTwin(&por2);
     por2.SetTwin(&por1);
 
@@ -319,6 +330,36 @@ int sol() {
 
     // draw as wireframe ??? what is this
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+    // framebuffer configuration
+    // -------------------------
+    unsigned int framebuffer;
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+    // blending
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // create a color attachment texture
+    unsigned int textureColorbuffer;
+    glGenTextures(1, &textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    // 这里想写透明图像要开rgba
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+    // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT); // use a single renderbuffer object for both a depth AND stencil buffer.
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
+                                                                                                  // now that we actually created the framebuffer and added all attachments we want to check if it is actually complete now
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // render loop
     // -----------
@@ -337,9 +378,23 @@ int sol() {
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
+        // todo
+        // draw to framebuffer
+        // 清屏记得设置无色
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_DEPTH_TEST);
+        screenShader.use();
+        screenShader.setFloat("time", currentFrame);
+        glBindVertexArray(quadVAO);
+        glBindTexture(GL_TEXTURE_2D, whiteNoiseTexture);	// use the color attachment texture as the texture of the quad plane
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
         // 1st draw as normal
         // ----------------------------------
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glEnable(GL_DEPTH_TEST);
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -358,8 +413,21 @@ int sol() {
         skyboxShader.setMat4("view", view);
         skyboxShader.setMat4("projection", projection);
 
-        // dont write to stencil
+        // draw skybox at first
         glStencilMask(0x00);
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0x00);
+        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+        skyboxShader.use();
+        // skybox cube
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS); // set depth function back to default
+
+        // dont write to stencil
         nonModelShader.use();
         glBindVertexArray(cubeVAO);
         glActiveTexture(GL_TEXTURE0);
@@ -370,6 +438,14 @@ int sol() {
             nonModelShader.setMat4("model", model);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
+        // 这里是用来测试framebuffer内容的，用完可以删了
+        // glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+        // for (glm::vec3 pos : altCubePos) {
+        //     model = glm::mat4(1.0f);
+        //     model = glm::translate(model, pos);
+        //     nonModelShader.setMat4("model", model);
+        //     glDrawArrays(GL_TRIANGLES, 0, 36);
+        // }
 
         // floor
         glBindVertexArray(planeVAO);
@@ -412,7 +488,7 @@ int sol() {
         nonModelShader.use();
         nonModelShader.setMat4("model", model);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, portalMarginTexture);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
         // portal 2
@@ -431,39 +507,27 @@ int sol() {
         nonModelShader.use();
         nonModelShader.setMat4("model", model);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, portalMarginTexture);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        // draw skybox at last
-        skyboxShader.use();
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilMask(0x00);
-        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
-        // skybox cube
-        glBindVertexArray(skyboxVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-        glDepthFunc(GL_LESS); // set depth function back to default
+        
 
         // 在模板写好之后将深度重置，以后主要靠模板测试
         // 目前不知道这样有没有bug
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        // 2nd : draw portal view
+        // draw portal 1
         glEnable(GL_DEPTH_TEST);
         glStencilFunc(GL_EQUAL, 1, 0xFF);
-        // glStencilFunc(GL_ALWAYS, 1, 0xFF);
         glStencilMask(0x00);
 
         glm::vec3 originalPos = camera.Position;
         float originalYaw = camera.Yaw;
         float originalPitch = camera.Pitch;
 
-        camera.Position = por1.GetNewCameraPosition(camera.Position);
-        camera.Yaw += por1.Yaw - por2.Yaw;
-        camera.Pitch += por2.Pitch - por1.Pitch;
+        camera.Position = por2.GetNewCameraPosition(camera.Position);
+        camera.Yaw += por2.Yaw - por1.Yaw;
+        camera.Pitch += por1.Pitch - por2.Pitch;
 
         camera.ProcessMouseMovement(0, 0, false); // call this to make sure it updates its camera vectors
         view = camera.GetViewMatrix();
@@ -481,6 +545,17 @@ int sol() {
         view = glm::mat4(glm::mat3(view)); // remove translation from the view matrix
         skyboxShader.use();
         skyboxShader.setMat4("view", view);
+
+        // draw skybox as last
+        skyboxShader.use();
+        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+        // skybox cube
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS); // set depth function back to default
 
         // cubes
         nonModelShader.use();
@@ -517,17 +592,6 @@ int sol() {
             obj.model->Draw(shader);
         }
 
-        // draw skybox as last
-        skyboxShader.use();
-        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
-        // skybox cube
-        glBindVertexArray(skyboxVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-        glDepthFunc(GL_LESS); // set depth function back to default
-
         glStencilMask(0xFF);
         glStencilFunc(GL_ALWAYS, 0, 0xFF);
 
@@ -547,7 +611,8 @@ int sol() {
     glDeleteBuffers(1, &planeVBO);
     glDeleteBuffers(1, &quadVBO);
     glDeleteBuffers(1, &skyboxVBO);
-
+    glDeleteRenderbuffers(1, &rbo);
+    glDeleteFramebuffers(1, &framebuffer);
     glfwTerminate();
     return 0;
 }
@@ -636,8 +701,10 @@ unsigned int loadTexture(char const* path)
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
         stbi_image_free(data);
     }
